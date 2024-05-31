@@ -22,16 +22,16 @@ class FloatFetcher(Fetcher):
 
 
 class ComputedFetcher(Fetcher):
-    def __init__(self, fetcher1: Fetcher, fetcher2: Fetcher, expression: Callable[[float, float], float]):
-        self.fetcher1 = fetcher1
-        self.fetcher2 = fetcher2
+    def __init__(self, fetchers: list[Fetcher], expression: Callable[[list[float]], float]):
+        self.fetchers = fetchers
         self.expression = expression
 
     def fetch(self, rs485: minimalmodbus.Instrument) -> float:
-        value1 = self.fetcher1.fetch(rs485)
-        value2 = self.fetcher2.fetch(rs485)
+        values = []
+        for fetcher in self.fetchers:
+            values.append(fetcher.fetch(rs485))
 
-        return self.expression(value1, value2)
+        return self.expression(values)
 
 
 DTS353F_USB_DEVICE = os.getenv('DTS353F_USB_DEVICE')
@@ -45,7 +45,7 @@ MQTT_RETAIN = os.getenv('MQTT_RETAIN', 'true') == 'true'
 ATTRIBUTE_MAP = {
     'energy/delivery': FloatFetcher(0x0108),
     'energy/redelivery': FloatFetcher(0x0110),
-    'energy/total': ComputedFetcher(FloatFetcher(0x0108), FloatFetcher(0x0110), lambda delivery, redelivery: delivery - redelivery),
+    'energy/total': ComputedFetcher([FloatFetcher(0x0108), FloatFetcher(0x0110)], lambda values: values[0] - values[1]),
     'power/total': FloatFetcher(0x001C),
     'power/l1': FloatFetcher(0x001E),
     'power/l2': FloatFetcher(0x0020),
@@ -53,6 +53,7 @@ ATTRIBUTE_MAP = {
     'voltage/l1': FloatFetcher(0x000E),
     'voltage/l2': FloatFetcher(0x0010),
     'voltage/l3': FloatFetcher(0x0012),
+    'voltage/average': ComputedFetcher([FloatFetcher(0x000E), FloatFetcher(0x0010), FloatFetcher(0x0012)], lambda values: sum(values) / len(values)),
 }
 
 mqttc: Optional[mqtt.Client] = None
