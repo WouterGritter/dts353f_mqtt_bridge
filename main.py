@@ -52,7 +52,7 @@ UPDATE_INTERVAL = float(os.getenv('UPDATE_INTERVAL', '0.5'))
 MQTT_BROKER_ADDRESS = os.getenv('MQTT_BROKER_ADDRESS', 'localhost')
 MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '1883'))
 MQTT_TOPIC_FORMAT = os.getenv('MQTT_TOPIC_PREFIX', 'dts353f/{attribute}')
-MQTT_QOS = int(os.getenv('MQTT_QOS', '1'))
+MQTT_QOS = int(os.getenv('MQTT_QOS', '0'))
 MQTT_RETAIN = os.getenv('MQTT_RETAIN', 'true') == 'true'
 
 ATTRIBUTE_FETCHERS = {
