@@ -1,12 +1,15 @@
 import os
 import time
-from typing import Optional, Callable
+from typing import Optional
 
 import minimalmodbus
 import paho.mqtt.client as mqtt
 
 from computed_fetcher import ComputedFetcher
+from fetcher import Fetcher
+from rb_solar_value_compensator import RbSolarValueCompensator
 from reader_fetcher import ReaderFetcher
+from value_compensator import ValueCompensator
 
 DTS353F_USB_DEVICE = os.getenv('DTS353F_USB_DEVICE')
 UPDATE_INTERVAL = float(os.getenv('UPDATE_INTERVAL', '0.5'))
@@ -15,8 +18,9 @@ MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '1883'))
 MQTT_TOPIC_FORMAT = os.getenv('MQTT_TOPIC_PREFIX', 'dts353f/{attribute}')
 MQTT_QOS = int(os.getenv('MQTT_QOS', '0'))
 MQTT_RETAIN = os.getenv('MQTT_RETAIN', 'true') == 'true'
+VALUE_COMPENSATORS = os.getenv('VALUE_COMPENSATORS', '').split(',')
 
-ATTRIBUTE_FETCHERS = {
+ATTRIBUTE_FETCHERS: dict[str, Fetcher] = {
     'energy/delivery': ReaderFetcher(0x0108),
     'energy/redelivery': ReaderFetcher(0x0110),
     'energy/total': ComputedFetcher(['energy/delivery', 'energy/redelivery'], lambda v: v[0] - v[1]),
@@ -35,6 +39,8 @@ ATTRIBUTE_FETCHERS = {
 }
 
 
+value_compensators: list[ValueCompensator] = []
+
 mqttc: Optional[mqtt.Client] = None
 rs485: Optional[minimalmodbus.Instrument] = None
 
@@ -49,8 +55,24 @@ def update_attributes():
     for attribute, fetcher in ATTRIBUTE_FETCHERS.items():
         value = fetcher.fetch(rs485, values)
         values[attribute] = value
+
+    for compensator in value_compensators:
+        try:
+            compensator.compensate(values)
+        except Exception as ex:
+            print(f'Error while applying value compensation.')
+            print(ex)
+
+    for attribute, value in values.items():
         if value is not None:
             publish_attribute(attribute, value)
+
+
+def create_value_compensator(name: str) -> Optional[ValueCompensator]:
+    if name == 'rb_solar_compensator':
+        return RbSolarValueCompensator(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT)
+
+    return None
 
 
 def main():
@@ -63,6 +85,7 @@ def main():
     print(f'{MQTT_TOPIC_FORMAT=}')
     print(f'{MQTT_QOS=}')
     print(f'{MQTT_RETAIN=}')
+    print(f'{VALUE_COMPENSATORS=}')
 
     mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     mqttc.connect(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT, 60)
@@ -76,6 +99,13 @@ def main():
     rs485.serial.timeout = 0.5
     rs485.debug = False
     rs485.mode = minimalmodbus.MODE_RTU
+
+    for name in VALUE_COMPENSATORS:
+        compensator = create_value_compensator(name)
+        if compensator is not None:
+            value_compensators.append(compensator)
+
+    print(f'Loaded value compensator(s): {[c.__class__.__name__ for c in value_compensators]}')
 
     while True:
         time.sleep(UPDATE_INTERVAL)

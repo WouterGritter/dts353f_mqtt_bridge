@@ -13,4 +13,5 @@ services:
       MQTT_TOPIC_PREFIX: 'dts353f/{attribute}'
       MQTT_QOS: '0'
       MQTT_RETAIN: 'true'
+      VALUE_COMPENSATORS: ${VALUE_COMPENSATORS}
     restart: unless-stopped
