@@ -1,51 +1,12 @@
 import os
 import time
-from abc import ABC, abstractmethod
 from typing import Optional, Callable
 
 import minimalmodbus
 import paho.mqtt.client as mqtt
 
-
-class Fetcher(ABC):
-
-    @abstractmethod
-    def fetch(self, previous_values: dict[str, float]) -> Optional[float]:
-        pass
-
-
-class ReaderFetcher(Fetcher):
-
-    def __init__(self, address: int, modifier: Optional[Callable[[float], float]] = None):
-        self.address = address
-        self.modifier = modifier
-
-    def fetch(self, previous_values: dict[str, float]) -> Optional[float]:
-        try:
-            value = rs485.read_float(self.address)
-            if self.modifier is not None:
-                value = self.modifier(value)
-
-            return value
-        except Exception as ex:
-            print(f'Error reading address {self.address:X}.')
-            print(ex)
-            return None
-
-
-class ComputedFetcher(Fetcher):
-
-    def __init__(self, in_attributes: list[str], expression: Callable[[list[float]], float]):
-        self.in_attributes = in_attributes
-        self.expression = expression
-
-    def fetch(self, previous_values: dict[str, float]) -> Optional[float]:
-        values = [previous_values[attribute] for attribute in self.in_attributes]
-        if None in values:
-            return None
-
-        return self.expression(values)
-
+from computed_fetcher import ComputedFetcher
+from reader_fetcher import ReaderFetcher
 
 DTS353F_USB_DEVICE = os.getenv('DTS353F_USB_DEVICE')
 UPDATE_INTERVAL = float(os.getenv('UPDATE_INTERVAL', '0.5'))
@@ -86,7 +47,7 @@ def publish_attribute(attribute: str, value: float):
 def update_attributes():
     values = {}
     for attribute, fetcher in ATTRIBUTE_FETCHERS.items():
-        value = fetcher.fetch(values)
+        value = fetcher.fetch(rs485, values)
         values[attribute] = value
         if value is not None:
             publish_attribute(attribute, value)
