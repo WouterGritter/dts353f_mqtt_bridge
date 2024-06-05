@@ -35,7 +35,7 @@ ATTRIBUTE_FETCHERS: dict[str, Fetcher] = {
     'amperage/l1': ComputedFetcher(['power/l1', 'voltage/l1'], lambda v: v[0] / v[1]),
     'amperage/l2': ComputedFetcher(['power/l2', 'voltage/l2'], lambda v: v[0] / v[1]),
     'amperage/l3': ComputedFetcher(['power/l3', 'voltage/l3'], lambda v: v[0] / v[1]),
-    'amperage/total': ComputedFetcher(['amperage/l1', 'amperage/l2', 'amperage/l3'], lambda v: sum(v)),
+    'amperage/total': ComputedFetcher(['amperage/l1', 'amperage/l2', 'amperage/l3'], lambda v: sum([abs(n) for n in v])),
 }
 
 
