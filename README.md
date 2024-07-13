@@ -1,6 +1,6 @@
 **Deprecated!**
 
-This project is replaced by [smart-meter-mqtt-bridge](https://github.com/WouterGritter/smart-meter-mqtt-bridge)
+This project is replaced by [smart-meter-mqtt-bridge](https://github.com/WouterGritter/smart-meter-mqtt-bridge).
 
 # dts353f_mqtt_bridge
 
